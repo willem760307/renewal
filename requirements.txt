@@ -1,0 +1,7 @@
+streamlit
+pandas
+gspread
+google-auth
+openpyxl
+extra-streamlit-components
+xlrd
