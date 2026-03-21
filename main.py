@@ -563,7 +563,6 @@ def main():
         /* Hide Default Streamlit Clutter (Headers, Footers) */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
-        header {visibility: hidden;}
         
     </style>
     """, unsafe_allow_html=True)
