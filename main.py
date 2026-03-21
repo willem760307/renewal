@@ -855,10 +855,12 @@ def main():
 
         c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([2.5, 0.8, 1.2, 0.8, 0.8, 1.5, 0.8, 1.0])
         
-        # Address Button
+        # Address Area (Text for copying, Button for details)
         current_status = chk_status_val if chk_status_val in status_options else "未送預審"
         emoji = get_status_emoji(current_status)
-        if c1.button(f"{emoji} 🏠 {item_address}", key=f"btn_{item_address}", use_container_width=True):
+        
+        c1.markdown(f"**{emoji} 🏠 {item_address}**")
+        if c1.button("📂 展開明細", key=f"btn_{item_address}", use_container_width=True):
             show_property_details(row, address_col, display_fields, other_fields, comment_ws, checklist_ws, main_ws)
         
         # Checkboxes
