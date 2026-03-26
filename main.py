@@ -852,7 +852,7 @@ def main():
             chk_status_val = "未送預審"
             chk_perf_val = False
 
-        c1, c2, c3, c3_exp, c4, c5, c_new, c6, c7, c8 = st.columns([2.5, 0.9, 1.1, 1.1, 1.0, 1.0, 0.8, 1.2, 0.8, 1.1])
+        c1, c2, c3, c4, c5, c_new, c6, c7, c8 = st.columns([2.6, 1.0, 1.4, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
         
         # Address Area (Compact + button and Text for copying)
         current_status = chk_status_val if chk_status_val in status_options else "未送預審"
@@ -866,12 +866,14 @@ def main():
         # Checkboxes
         c2.checkbox("房屋稅單", value=chk1_val, key=f"tbl_chk1_{item_address}", on_change=update_checklist, args=(item_address, "房屋稅單", f"tbl_chk1_{item_address}"))
         
-        # Tenant Info + Expiry Check
-        c3.checkbox("戶籍謄本", value=chk2_val, key=f"tbl_chk2_{item_address}", on_change=update_checklist, args=(item_address, "戶籍謄本", f"tbl_chk2_{item_address}"))
+        # Tenant Info + Expiry Check (Compact Popover)
         if needs_expiry_check:
-            c3_exp.checkbox(f"🚨{expiry_label}", value=chk5_val, key=f"tbl_chk5_{item_address}", on_change=update_checklist, args=(item_address, "證件期限檢核", f"tbl_chk5_{item_address}"))
+            c3_col1, c3_col2 = c3.columns([0.3, 0.7])
+            with c3_col1.popover("🚨", help="點擊展開證件效期檢核"):
+                st.checkbox("證件效期", value=chk5_val, key=f"tbl_chk5_{item_address}", on_change=update_checklist, args=(item_address, "證件期限檢核", f"tbl_chk5_{item_address}"))
+            c3_col2.checkbox("戶籍", value=chk2_val, key=f"tbl_chk2_{item_address}", on_change=update_checklist, args=(item_address, "戶籍謄本", f"tbl_chk2_{item_address}"))
         else:
-            c3_exp.empty() # Placeholder for alignment
+            c3.checkbox("戶籍", value=chk2_val, key=f"tbl_chk2_{item_address}", on_change=update_checklist, args=(item_address, "戶籍謄本", f"tbl_chk2_{item_address}"))
             
         c4.checkbox("滅火效期", value=chk3_val, key=f"tbl_chk3_{item_address}", on_change=update_checklist, args=(item_address, "滅火器效期", f"tbl_chk3_{item_address}"))
         c5.checkbox("滅火地址", value=chkA_val, key=f"tbl_chkA_{item_address}", on_change=update_checklist, args=(item_address, "滅火器地址", f"tbl_chkA_{item_address}"))
