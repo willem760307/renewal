@@ -601,8 +601,18 @@ def main():
                     new_df = new_df.drop(columns=cols_actual_drop)
 
                 # Generate unique identifier for merging
-                if '物件縣市' in new_df.columns and '租賃地址' in new_df.columns:
-                    new_df['關聯物件地址'] = new_df['物件縣市'].astype(str) + new_df['租賃地址'].astype(str)
+                # Generate unique identifier for merging (Robustly handle common address field names)
+                addr_field = next((c for c in new_df.columns if "租賃地址" in c or "物件地址" in c or "地址" in c), None)
+                city_field = next((c for c in new_df.columns if "縣市" in c), None)
+                
+                if addr_field:
+                    if city_field:
+                        new_df['關聯物件地址'] = new_df[city_field].astype(str) + new_df[addr_field].astype(str)
+                    else:
+                        new_df['關聯物件地址'] = new_df[addr_field].astype(str)
+                elif '關聯物件地址' not in new_df.columns:
+                    st.error("上傳的檔案中找不到地址欄位，請檢查標題是否包含 '地址' 或 '物件地址'。")
+                    st.stop()
 
                 # Merge with existing data
                 existing_df = st.session_state.df_main.copy()
@@ -643,8 +653,8 @@ def main():
         st.stop()
 
     # Identification mapping for "Expiry Date" and "Address"
-    possible_expiry = ["到期日", "租約迄", "結束日期", "Expiry"]
-    possible_address = ["地址", "標的名稱", "Address"]
+    possible_expiry = ["租約訖", "到期日", "租約迄", "結束日期", "Expiry"]
+    possible_address = ["租賃地址", "物件地址", "地址", "標的名稱", "Address"]
     
     auto_expiry_col = next((c for c in df_main.columns if any(p in c for p in possible_expiry)), df_main.columns[0])
     auto_address_col = next((c for c in df_main.columns if any(p in c for p in possible_address)), df_main.columns[0])
@@ -824,7 +834,7 @@ def main():
         is_class_1 = "1" in tenant_val or "第一" in tenant_val
         is_class_2 = "2" in tenant_val or "第二" in tenant_val
         needs_expiry_check = is_class_1 or is_class_2
-        expiry_label = "更新證件期限" if is_class_2 else "證件期限"
+        expiry_label = "證件效期"
         
         chk_row_idx = df_checklist.index[df_checklist['關聯物件地址'] == item_address].tolist()
         if chk_row_idx:
@@ -842,7 +852,7 @@ def main():
             chk_status_val = "未送預審"
             chk_perf_val = False
 
-        c1, c2, c3, c4, c5, c_new, c6, c7, c8 = st.columns([2.6, 1.0, 1.2, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
+        c1, c2, c3, c3_exp, c4, c5, c_new, c6, c7, c8 = st.columns([2.5, 0.9, 1.1, 1.1, 1.0, 1.0, 0.8, 1.2, 0.8, 1.1])
         
         # Address Area (Compact + button and Text for copying)
         current_status = chk_status_val if chk_status_val in status_options else "未送預審"
@@ -859,7 +869,9 @@ def main():
         # Tenant Info + Expiry Check
         c3.checkbox("戶籍謄本", value=chk2_val, key=f"tbl_chk2_{item_address}", on_change=update_checklist, args=(item_address, "戶籍謄本", f"tbl_chk2_{item_address}"))
         if needs_expiry_check:
-            c3.checkbox(f"🚨{expiry_label}", value=chk5_val, key=f"tbl_chk5_{item_address}", on_change=update_checklist, args=(item_address, "證件期限檢核", f"tbl_chk5_{item_address}"))
+            c3_exp.checkbox(f"🚨{expiry_label}", value=chk5_val, key=f"tbl_chk5_{item_address}", on_change=update_checklist, args=(item_address, "證件期限檢核", f"tbl_chk5_{item_address}"))
+        else:
+            c3_exp.empty() # Placeholder for alignment
             
         c4.checkbox("滅火效期", value=chk3_val, key=f"tbl_chk3_{item_address}", on_change=update_checklist, args=(item_address, "滅火器效期", f"tbl_chk3_{item_address}"))
         c5.checkbox("滅火地址", value=chkA_val, key=f"tbl_chkA_{item_address}", on_change=update_checklist, args=(item_address, "滅火器地址", f"tbl_chkA_{item_address}"))
