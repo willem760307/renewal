@@ -788,25 +788,12 @@ def main():
     if c_head2.button("➕ 新增物件", type="primary", use_container_width=True):
         show_add_property_dialog(df_main, main_ws, address_col, expiry_col, display_fields, other_fields)
     total_count = len(filtered_df)
-    st.caption(f"共找到 {total_count} 筆符合條件的案件")
+    # st.caption(f"共找到 {total_count} 筆符合條件的案件")
     
     if total_count == 0:
         st.stop()
 
-    # Table Header
-    with st.container():
-        h1, h2, h3, h4, h5, h_new, h6, h7, h8 = st.columns([2.6, 1.0, 1.2, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
-        h1.markdown("**案件地址 (點開明細)**")
-        h2.markdown("**稅單**")
-        h3.markdown("**戶籍**")
-        h4.markdown("**滅效期**")
-        h5.markdown("**滅地址**")
-        h_new.markdown("**偵煙**")
-        h6.markdown("**狀態**")
-        h7.markdown("**業績**")
-        h8.markdown("**雲端同步**")
-    
-    st.divider()
+    # Removed header and divider for ultra-compact layout
 
     # Table Rows
     def update_checklist(addr, field, key):
@@ -902,7 +889,7 @@ def main():
         with st.container():
             render_inline_comments(item_address, comment_ws, is_dialog=False)
             
-        st.divider()
+        # st.divider() # Removed for ultra-compact layout
 
 
 if __name__ == "__main__":
