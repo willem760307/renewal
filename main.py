@@ -81,7 +81,7 @@ def load_checklist(checklist_ws):
         data = []
     
     df = pd.DataFrame(data)
-    expected_cols = ["關聯物件地址", "房東資料", "房客資料", "物件資料", "安全檢核", "證件期限檢核", "狀態", "已報業績"]
+    expected_cols = ["關聯物件地址", "房屋稅單", "戶籍謄本", "滅火器效期", "滅火器地址", "偵煙器", "證件期限檢核", "狀態", "已報業績"]
     for col in expected_cols:
         if col not in df.columns:
             df[col] = pd.Series(dtype=str)
@@ -795,12 +795,13 @@ def main():
 
     # Table Header
     with st.container():
-        h1, h2, h3, h4, h5, h6, h7, h8 = st.columns([2.5, 0.8, 1.2, 0.8, 0.8, 1.5, 0.8, 1.0])
-        h1.markdown("**物件狀態及地址 (點擊查看明細)**")
-        h2.markdown("**房東**")
-        h3.markdown("**房客**")
-        h4.markdown("**物件**")
-        h5.markdown("**安全**")
+        h1, h2, h3, h4, h5, h_new, h6, h7, h8 = st.columns([2.6, 1.0, 1.2, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
+        h1.markdown("**案件地址 (點開明細)**")
+        h2.markdown("**稅單**")
+        h3.markdown("**戶籍**")
+        h4.markdown("**滅效期**")
+        h5.markdown("**滅地址**")
+        h_new.markdown("**偵煙**")
         h6.markdown("**狀態**")
         h7.markdown("**業績**")
         h8.markdown("**雲端同步**")
@@ -814,7 +815,7 @@ def main():
         full_chk = st.session_state.df_checklist.copy()
         idx_list = full_chk.index[full_chk['關聯物件地址'] == addr].tolist()
         if not idx_list:
-            new_row = {"關聯物件地址": addr, "房東資料": "", "房客資料": "", "物件資料": "", "安全檢核": "", "證件期限檢核": "", "狀態": "未送預審", "已報業績": "False"}
+            new_row = {"關聯物件地址": addr, "房屋稅單": "", "戶籍謄本": "", "滅火器效期": "", "滅火器地址": "", "偵煙器": "", "證件期限檢核": "", "狀態": "未送預審", "已報業績": "False"}
             new_row[field] = str(new_val)
             full_chk = pd.concat([full_chk, pd.DataFrame([new_row])], ignore_index=True)
         else:
@@ -841,19 +842,20 @@ def main():
         chk_row_idx = df_checklist.index[df_checklist['關聯物件地址'] == item_address].tolist()
         if chk_row_idx:
             chk_data = df_checklist.iloc[chk_row_idx[0]]
-            chk1_val = str(chk_data.get("房東資料", "")) == "True"
-            chk2_val = str(chk_data.get("房客資料", "")) == "True"
-            chk3_val = str(chk_data.get("物件資料", "")) == "True"
-            chk4_val = str(chk_data.get("安全檢核", "")) == "True"
+            chk1_val = str(chk_data.get("房屋稅單", "")) == "True"
+            chk2_val = str(chk_data.get("戶籍謄本", "")) == "True"
+            chk3_val = str(chk_data.get("滅火器效期", "")) == "True"
+            chkA_val = str(chk_data.get("滅火器地址", "")) == "True"
+            chkB_val = str(chk_data.get("偵煙器", "")) == "True"
             chk5_val = str(chk_data.get("證件期限檢核", "")) == "True"
             chk_status_val = str(chk_data.get("狀態", "未送預審"))
             chk_perf_val = str(chk_data.get("已報業績", "")) == "True"
         else:
-            chk1_val, chk2_val, chk3_val, chk4_val, chk5_val = False, False, False, False, False
+            chk1_val, chk2_val, chk3_val, chkA_val, chkB_val, chk5_val = False, False, False, False, False, False
             chk_status_val = "未送預審"
             chk_perf_val = False
 
-        c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([2.5, 0.8, 1.2, 0.8, 0.8, 1.5, 0.8, 1.0])
+        c1, c2, c3, c4, c5, c_new, c6, c7, c8 = st.columns([2.6, 1.0, 1.2, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
         
         # Address Area (Text for copying, Button for details)
         current_status = chk_status_val if chk_status_val in status_options else "未送預審"
@@ -864,15 +866,16 @@ def main():
             show_property_details(row, address_col, display_fields, other_fields, comment_ws, checklist_ws, main_ws)
         
         # Checkboxes
-        c2.checkbox("房東", value=chk1_val, key=f"tbl_chk1_{item_address}", on_change=update_checklist, args=(item_address, "房東資料", f"tbl_chk1_{item_address}"))
+        c2.checkbox("房屋稅單", value=chk1_val, key=f"tbl_chk1_{item_address}", on_change=update_checklist, args=(item_address, "房屋稅單", f"tbl_chk1_{item_address}"))
         
         # Tenant Info + Expiry Check
-        c3.checkbox("房客", value=chk2_val, key=f"tbl_chk2_{item_address}", on_change=update_checklist, args=(item_address, "房客資料", f"tbl_chk2_{item_address}"))
+        c3.checkbox("戶籍謄本", value=chk2_val, key=f"tbl_chk2_{item_address}", on_change=update_checklist, args=(item_address, "戶籍謄本", f"tbl_chk2_{item_address}"))
         if needs_expiry_check:
             c3.checkbox(f"🚨{expiry_label}", value=chk5_val, key=f"tbl_chk5_{item_address}", on_change=update_checklist, args=(item_address, "證件期限檢核", f"tbl_chk5_{item_address}"))
             
-        c4.checkbox("物件", value=chk3_val, key=f"tbl_chk3_{item_address}", on_change=update_checklist, args=(item_address, "物件資料", f"tbl_chk3_{item_address}"))
-        c5.checkbox("安全", value=chk4_val, key=f"tbl_chk4_{item_address}", on_change=update_checklist, args=(item_address, "安全檢核", f"tbl_chk4_{item_address}"))
+        c4.checkbox("滅火效期", value=chk3_val, key=f"tbl_chk3_{item_address}", on_change=update_checklist, args=(item_address, "滅火器效期", f"tbl_chk3_{item_address}"))
+        c5.checkbox("滅火地址", value=chkA_val, key=f"tbl_chkA_{item_address}", on_change=update_checklist, args=(item_address, "滅火器地址", f"tbl_chkA_{item_address}"))
+        c_new.checkbox("偵煙器", value=chkB_val, key=f"tbl_chkB_{item_address}", on_change=update_checklist, args=(item_address, "偵煙器", f"tbl_chkB_{item_address}"))
         
         # Status Dropdown
         current_idx = status_options.index(current_status)
