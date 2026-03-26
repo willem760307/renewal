@@ -61,6 +61,15 @@ def load_main_data(main_ws):
             
     return df
 
+def get_perf_points(row):
+    # Find column that matches "委託形式"
+    col = next((c for c in row.index if "委託形式" in str(c)), None)
+    if not col: return 0
+    val = str(row[col])
+    if "轉租" in val: return 6
+    if "代管" in val: return 2
+    return 0
+
 def load_comments(comment_ws):
     try:
         data = comment_ws.get_all_records()
@@ -299,6 +308,9 @@ def show_property_details(row, address_col, display_fields, other_fields, commen
     idx = row.name
     edit_state_key = f"editing_props_{item_address}"
     is_editing = st.session_state.get(edit_state_key, False)
+    
+    pts = get_perf_points(row)
+    st.markdown(f"### 🏆 業績點數: {pts} 點")
     
     c_head1, c_head2 = st.columns([8, 2])
     if not is_editing:
@@ -797,6 +809,21 @@ def main():
     c_head1.markdown("### 📋 案件列表")
     if c_head2.button("➕ 新增物件", type="primary", use_container_width=True):
         show_add_property_dialog(df_main, main_ws, address_col, expiry_col, display_fields, other_fields)
+    
+    # Calculate Total Points for Selected items
+    selected_indices = [idx for idx, val in st.session_state.items() if idx.startswith("sel_") and val]
+    total_pts = 0
+    for key in selected_indices:
+        # Key format: sel_{item_address}
+        addr = key.replace("sel_", "")
+        r = filtered_df[filtered_df[address_col] == addr]
+        if not r.empty:
+            pts_val = get_perf_points(r.iloc[0])
+            total_pts = total_pts + int(pts_val)
+    
+    if total_pts > 0:
+        st.info(f"🏆 **已選取案件總點數：{total_pts} 點**")
+    
     total_count = len(filtered_df)
     # st.caption(f"共找到 {total_count} 筆符合條件的案件")
     
@@ -852,7 +879,10 @@ def main():
             chk_status_val = "未送預審"
             chk_perf_val = False
 
-        c1, c2, c3, c4, c5, c_new, c6, c7, c8 = st.columns([2.6, 1.0, 1.4, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
+        c_sel, c1, c2, c3, c4, c5, c_new, c6, c7, c8 = st.columns([0.4, 2.2, 0.9, 1.4, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
+        
+        # Selection Checkbox
+        c_sel.checkbox(" ", key=f"sel_{item_address}", label_visibility="collapsed")
         
         # Address Area (Compact + button and Text for copying)
         current_status = chk_status_val if chk_status_val in status_options else "未送預審"
