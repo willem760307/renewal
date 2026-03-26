@@ -857,13 +857,14 @@ def main():
 
         c1, c2, c3, c4, c5, c_new, c6, c7, c8 = st.columns([2.6, 1.0, 1.2, 1.1, 1.1, 0.8, 1.3, 0.8, 1.1])
         
-        # Address Area (Text for copying, Button for details)
+        # Address Area (Compact + button and Text for copying)
         current_status = chk_status_val if chk_status_val in status_options else "未送預審"
         emoji = get_status_emoji(current_status)
         
-        c1.markdown(f"**{emoji} 🏠 {item_address}**")
-        if c1.button("📂 展開明細", key=f"btn_{item_address}", use_container_width=True):
+        c1_btn, c1_txt = c1.columns([0.2, 0.8])
+        if c1_btn.button("➕", key=f"btn_{item_address}", type="secondary", use_container_width=True, help="點擊展開此案件明細"):
             show_property_details(row, address_col, display_fields, other_fields, comment_ws, checklist_ws, main_ws)
+        c1_txt.markdown(f"<div style='padding-top: 5px; font-weight: bold;'>{emoji} 🏠 {item_address}</div>", unsafe_allow_html=True)
         
         # Checkboxes
         c2.checkbox("房屋稅單", value=chk1_val, key=f"tbl_chk1_{item_address}", on_change=update_checklist, args=(item_address, "房屋稅單", f"tbl_chk1_{item_address}"))
