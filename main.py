@@ -23,23 +23,23 @@ def get_gsheet_client():
 def get_worksheets():
     client = get_gsheet_client()
     if not client:
-        return None, None, None
+        return None, None, None, None
     try:
         sh = client.open_by_key(st.secrets["spreadsheet_id"])
         main_ws = sh.worksheet("MainData")
         comment_ws = sh.worksheet("Comments")
         
-        # Create Checklist worksheet if not exists
+        # Create Line Bot Logs worksheet if not exists
         try:
-            checklist_ws = sh.worksheet("Checklist")
+            line_bot_ws = sh.worksheet("LineLogs")
         except gspread.WorksheetNotFound:
-            checklist_ws = sh.add_worksheet(title="Checklist", rows="1000", cols="5")
-            checklist_ws.append_row(["關聯物件地址", "房東資料", "房客資料", "物件資料", "安全檢核"])
+            line_bot_ws = sh.add_worksheet(title="LineLogs", rows="1000", cols="5")
+            line_bot_ws.append_row(["姓名", "文件類型", "檔案連結", "時間", "已處理"])
             
-        return main_ws, comment_ws, checklist_ws
+        return main_ws, comment_ws, checklist_ws, line_bot_ws
     except Exception as e:
         st.error(f"找不到工作表: {e}")
-        return None, None, None
+        return None, None, None, None
 
 # --- Helpers ---
 def load_main_data(main_ws):
@@ -60,6 +60,96 @@ def load_main_data(main_ws):
             df[col] = df[col].apply(fix_phone)
             
     return df
+
+def sync_line_bot_data(df_main, df_checklist, line_bot_ws, checklist_ws, comment_ws, address_col):
+    """
+    Syncs data from LineLogs to the checklist based on name matching.
+    """
+    try:
+        logs = line_bot_ws.get_all_records()
+        if not logs: return 0
+        df_logs = pd.DataFrame(logs)
+    except Exception:
+        return 0
+        
+    if "已處理" not in df_logs.columns:
+        df_logs["已處理"] = ""
+        
+    sync_count = 0
+    new_comments = []
+    
+    # Identify name columns in main data
+    landlord_cols = [c for c in df_main.columns if "房東姓名" in c or "業主姓名" in c]
+    tenant_cols = [c for c in df_main.columns if "房客姓名" in c or "承租人" in c]
+    
+    for idx, row in df_logs.iterrows():
+        if str(row.get("已處理", "")).lower() == "true":
+            continue
+            
+        name = str(row.get("姓名", "")).strip()
+        doc_type = str(row.get("文件類型", "")).strip()
+        link = str(row.get("檔案連結", "")).strip()
+        
+        if not name or not doc_type: continue
+        
+        # Search for this name in main data
+        match_addr = None
+        for c in landlord_cols + tenant_cols:
+            matches = df_main[df_main[c].astype(str).str.contains(name, na=False)]
+            if not matches.empty:
+                match_addr = str(matches.iloc[0][address_col])
+                break
+        
+        if match_addr:
+            # Update Checklist
+            field_map = {
+                "稅單": "房屋稅單",
+                "房屋稅單": "房屋稅單",
+                "戶籍": "戶籍謄本",
+                "戶籍謄本": "戶籍謄本",
+                "滅火器": "滅火器效期",
+                "偵煙": "偵煙器"
+            }
+            target_field = next((v for k, v in field_map.items() if k in doc_type), None)
+            
+            if target_field:
+                # Update session state df_checklist
+                chk_idx_list = df_checklist.index[df_checklist['關聯物件地址'] == match_addr].tolist()
+                if not chk_idx_list:
+                    new_row = {"關聯物件地址": match_addr, "房屋稅單": "False", "戶籍謄本": "False", "滅火器效期": "False", "滅火器地址": "False", "偵煙器": "False", "狀態": "未送預審"}
+                    new_row[target_field] = "True"
+                    df_checklist = pd.concat([df_checklist, pd.DataFrame([new_row])], ignore_index=True)
+                else:
+                    df_checklist.at[chk_idx_list[0], target_field] = "True"
+                
+                # Add Comment
+                new_com = {
+                    "關聯物件地址": match_addr,
+                    "留言時間": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "留言內容": f"🤖 [LineBot 自動收錄] 收到 {doc_type}：{link}",
+                    "留言ID": str(uuid.uuid4())
+                }
+                new_comments.append(new_com)
+                
+                # Mark as processed in logs
+                line_bot_ws.update_cell(idx + 2, df_logs.columns.get_loc("已處理") + 1, "True")
+                sync_count += 1
+                
+    if sync_count > 0:
+        # Save updated checklist to cloud
+        checklist_ws.clear()
+        checklist_ws.update([df_checklist.columns.values.tolist()] + df_checklist.values.tolist())
+        st.session_state.df_checklist = df_checklist
+        
+        # Save new comments to cloud
+        if new_comments:
+            full_com = st.session_state.df_comments.copy()
+            full_com = pd.concat([full_com, pd.DataFrame(new_comments)], ignore_index=True)
+            comment_ws.clear()
+            comment_ws.update([full_com.columns.values.tolist()] + full_com.values.tolist())
+            st.session_state.df_comments = full_com
+            
+    return sync_count
 
 def get_perf_points(row):
     # Find column that matches "委託形式"
@@ -579,11 +669,34 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    main_ws, comment_ws, checklist_ws = get_worksheets()
-    if not main_ws or not comment_ws or not checklist_ws:
+    main_ws, comment_ws, checklist_ws, line_bot_ws = get_worksheets()
+    if not main_ws or not comment_ws or not checklist_ws or not line_bot_ws:
         st.info("請確認 st.secrets 中的 spreadsheet_id 與 Google Service Account 已正確設定。")
         st.stop()
-
+        
+    # Sidebar Navigation & Management
+    with st.sidebar:
+        st.title("🏠 續約管理系統")
+        # Authentication or other sidebar elements here
+        
+        # Line Bot Sync Button in Sidebar for easy access
+        st.divider()
+        if st.button("🔄 同步 Line Bot 最新資料", use_container_width=True, help="點擊後系統會比對 Line 收到的檔案並自動更新打勾"):
+            with st.spinner("智慧比對姓名中..."):
+                count = sync_line_bot_data(
+                    st.session_state.df_main, 
+                    st.session_state.df_checklist, 
+                    line_bot_ws, 
+                    checklist_ws, 
+                    comment_ws, 
+                    auto_address_col # Pass detected address column
+                )
+            if count > 0:
+                st.success(f"✅ 同步成功！共自動更新了 {count} 個檔案狀態。")
+                st.rerun()
+            else:
+                st.info("目前沒有新的 Line Bot 資料需要同步。")
+    
     # Sidebar: Data Management
     with st.sidebar:
         st.header("⚙️ 系統管理")
