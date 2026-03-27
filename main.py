@@ -690,19 +690,25 @@ def main():
         st.divider()
         if st.button("🔄 同步 Line Bot 最新資料", use_container_width=True, help="點擊後系統會比對 Line 收到的檔案並自動更新打勾"):
             with st.spinner("智慧比對姓名中..."):
-                count = sync_line_bot_data(
-                    st.session_state.df_main, 
-                    st.session_state.df_checklist, 
-                    line_bot_ws, 
-                    checklist_ws, 
-                    comment_ws, 
-                    auto_address_col # Pass detected address column
-                )
-            if count > 0:
-                st.success(f"✅ 同步成功！共自動更新了 {count} 個檔案狀態。")
-                st.rerun()
-            else:
-                st.info("目前沒有新的 Line Bot 資料需要同步。")
+                _possible_address = ["租賃地址", "物件地址", "地址", "標的名稱", "Address"]
+                _df = st.session_state.get("df_main", None)
+                if _df is not None and not _df.empty:
+                    _address_col = next((c for c in _df.columns if any(p in c for p in _possible_address)), _df.columns[0])
+                    count = sync_line_bot_data(
+                        _df,
+                        st.session_state.df_checklist,
+                        line_bot_ws,
+                        checklist_ws,
+                        comment_ws,
+                        _address_col
+                    )
+                    if count > 0:
+                        st.success(f"✅ 同步成功！共自動更新了 {count} 個檔案狀態。")
+                        st.rerun()
+                    else:
+                        st.info("目前沒有新的 Line Bot 資料需要同步。")
+                else:
+                    st.warning("請先載入案件資料後再執行同步。")
     
     # Sidebar: Data Management
     with st.sidebar:
