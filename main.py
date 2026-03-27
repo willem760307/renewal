@@ -891,12 +891,12 @@ def main():
     
     f_col1, f_col2, f_col3 = st.columns(3)
     available_months = sorted(display_df['YearMonth'].dropna().unique()) if 'YearMonth' in display_df.columns else []
-    selected_months = f_col1.multiselect("📅 選擇到期月份 (若搜尋地址則忽略此項)", options=available_months)
+    selected_months = f_col1.multiselect("📅 選擇到期月份 (若搜尋地址則忽略此項)", options=available_months, key="filter_months")
     
     status_options = ["未送預審", "預審中", "預審通過", "簽約中", "已完成", "不續約"]
-    selected_statuses = f_col2.multiselect("🏷️ 篩選狀態", options=status_options)
+    selected_statuses = f_col2.multiselect("🏷️ 篩選狀態", options=status_options, key="filter_status")
     
-    perf_option = f_col3.selectbox("💰 篩選已報業績", options=["所有", "已報", "未報"], index=0)
+    perf_option = f_col3.selectbox("💰 篩選已報業績", options=["所有", "已報", "未報"], index=0, key="filter_perf")
 
     # Quick Hide features for flexibility
     st.markdown("🎯 **快速隱藏選項**")
@@ -941,15 +941,30 @@ def main():
     # Dynamic Field Selector
     all_fields = [c for c in df_main.columns if c != 'YearMonth']
     # Removed address_col from the default display fields to avoid redundancy
-    display_fields = st.multiselect("📊 選擇顯示欄位 (卡片主要內容)", options=all_fields, default=[expiry_col])
+    display_fields = st.multiselect("📊 選擇顯示欄位 (卡片主要內容)", options=all_fields, default=[expiry_col], key="display_fields_multiselect")
 
     other_fields = [f for f in all_fields if f not in display_fields]
 
     # --- Table Layout ---
-    c_head1, c_head2 = st.columns([8, 2])
+    c_head1, c_head2, c_head3 = st.columns([5, 2, 3])
     c_head1.markdown("### 📋 案件列表")
-    if c_head2.button("➕ 新增物件", type="primary", use_container_width=True):
+    if c_head2.button("➕ 新增物件", type="secondary", use_container_width=True):
         show_add_property_dialog(df_main, main_ws, address_col, expiry_col, display_fields, other_fields)
+    
+    if c_head3.button("💾 全部儲存變更", type="primary", use_container_width=True, help="點擊後會將目前畫面上所有物件的勾選狀態儲存至雲端"):
+        with st.spinner("同步至雲端中..."):
+            # Save Checklist
+            chk_clean = st.session_state.df_checklist.fillna("").astype(str)
+            checklist_ws.clear()
+            checklist_ws.update([chk_clean.columns.values.tolist()] + chk_clean.values.tolist())
+            
+            # Save Comments as backup
+            com_clean = st.session_state.df_comments.fillna("").astype(str)
+            comment_ws.clear()
+            comment_ws.update([com_clean.columns.values.tolist()] + com_clean.values.tolist())
+            
+            st.toast("✅ 雲端資料已同步！")
+            st.rerun()
     
     # Calculate Total Points for Selected items
     selected_indices = [idx for idx, val in st.session_state.items() if idx.startswith("sel_") and val]
@@ -1056,19 +1071,6 @@ def main():
         
         # Performance Checkbox
         c7.checkbox("已報", value=chk_perf_val, key=f"tbl_perf_{item_address}", on_change=update_checklist, args=(item_address, "已報業績", f"tbl_perf_{item_address}"))
-        
-        # Cloud Sync Button
-        if c8.button("💾 儲存", key=f"tbl_save_{item_address}", help="將此物件的狀態與留言儲存至雲端", use_container_width=True):
-            with st.spinner("同步至雲端中..."):
-                f_chk = st.session_state.df_checklist
-                if checklist_ws is not None:
-                    checklist_ws.clear()
-                    checklist_ws.update([f_chk.columns.values.tolist()] + f_chk.values.tolist())
-                f_com = st.session_state.df_comments
-                if comment_ws is not None:
-                    comment_ws.clear()
-                    comment_ws.update([f_com.columns.values.tolist()] + f_com.values.tolist())
-            st.toast(f"✅ {item_address} 儲存成功！")
         
         # Historical comments thread inline
         with st.container():
