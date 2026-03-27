@@ -29,6 +29,13 @@ def get_worksheets():
         main_ws = sh.worksheet("MainData")
         comment_ws = sh.worksheet("Comments")
         
+        # Create Checklist worksheet if not exists
+        try:
+            checklist_ws = sh.worksheet("Checklist")
+        except gspread.WorksheetNotFound:
+            checklist_ws = sh.add_worksheet(title="Checklist", rows="1000", cols="5")
+            checklist_ws.append_row(["關聯物件地址", "房東資料", "房客資料", "物件資料", "安全檢核"])
+            
         # Create Line Bot Logs worksheet if not exists
         try:
             line_bot_ws = sh.worksheet("LineLogs")
