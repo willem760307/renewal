@@ -147,7 +147,7 @@ def sync_line_bot_data(df_main, df_checklist, line_bot_ws, checklist_ws, comment
                 new_com = {
                     "關聯物件地址": match_addr,
                     "留言時間": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "留言內容": f"🤖 [LineBot 自動收錄] 收到 {doc_type}：{link}",
+                    "留言內容": f"🤖 [LineBot 自動收錄] 收到 {doc_type}",
                     "留言ID": str(uuid.uuid4())
                 }
                 new_comments.append(new_com)
