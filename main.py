@@ -85,9 +85,20 @@ def sync_line_bot_data(df_main, df_checklist, line_bot_ws, checklist_ws, comment
     sync_count = 0
     new_comments = []
     
-    # Identify name columns in main data
-    landlord_cols = [c for c in df_main.columns if "房東姓名" in c or "業主姓名" in c]
-    tenant_cols = [c for c in df_main.columns if "房客姓名" in c or "承租人" in c]
+    # Identify name columns in main data - use broader keyword matching
+    name_keywords = ["房東", "業主", "房客", "承租", "姓名", "戶名", "名字"]
+    name_cols = [c for c in df_main.columns if any(k in str(c) for k in name_keywords)]
+    
+    # Fallback: search ALL columns that contain string data if no dedicated name columns found
+    if not name_cols:
+        name_cols = [c for c in df_main.columns if df_main[c].dtype == object]
+    
+    # Surface debug info to UI
+    st.session_state["_sync_debug"] = {
+        "name_cols_found": name_cols,
+        "log_count": len(df_logs),
+        "main_columns": list(df_main.columns)
+    }
     
     for idx, row in df_logs.iterrows():
         if str(row.get("已處理", "")).lower() == "true":
@@ -97,15 +108,18 @@ def sync_line_bot_data(df_main, df_checklist, line_bot_ws, checklist_ws, comment
         doc_type = str(row.get("文件類型", "")).strip()
         link = str(row.get("檔案連結", "")).strip()
         
-        if not name or not doc_type: continue
+        if not name or name == "nan" or not doc_type: continue
         
-        # Search for this name in main data
+        # Search for this name in main data across all identified name columns
         match_addr = None
-        for c in landlord_cols + tenant_cols:
-            matches = df_main[df_main[c].astype(str).str.contains(name, na=False)]
-            if not matches.empty:
-                match_addr = str(matches.iloc[0][address_col])
-                break
+        for c in name_cols:
+            try:
+                matches = df_main[df_main[c].astype(str).str.contains(name, na=False, regex=False)]
+                if not matches.empty:
+                    match_addr = str(matches.iloc[0][address_col])
+                    break
+            except Exception:
+                continue
         
         if match_addr:
             # Update Checklist
@@ -143,9 +157,10 @@ def sync_line_bot_data(df_main, df_checklist, line_bot_ws, checklist_ws, comment
                 sync_count += 1
                 
     if sync_count > 0:
-        # Save updated checklist to cloud
+        # Save updated checklist to cloud (must clean NaN values for gspread JSON serialization)
+        chk_clean = df_checklist.fillna("").astype(str)
         checklist_ws.clear()
-        checklist_ws.update([df_checklist.columns.values.tolist()] + df_checklist.values.tolist())
+        checklist_ws.update([chk_clean.columns.values.tolist()] + chk_clean.values.tolist())
         st.session_state.df_checklist = df_checklist
         
         # Save new comments to cloud
